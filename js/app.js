@@ -119,6 +119,7 @@ function renderKitChecklist(container) {
 
 async function initKitList() {
   const wrap = document.getElementById('content-kit-list');
+  wrap.innerHTML = '';
 
   // Markdown prose
   const mdDiv = document.createElement('div');
