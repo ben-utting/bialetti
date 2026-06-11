@@ -1,6 +1,6 @@
 # Moka Companion
 
-A PWA for the Bialetti Moka pot. Covers the history, technique, and science of stovetop espresso, plus a personal brew log with taste ratings and CSV export.
+A web app companion for the Bialetti Moka pot. Covers the history, technique, and science of stovetop espresso, plus a personal brew log with taste ratings and CSV export.
 
 <p align="center">
   <img src="screenshots/MokaCompanion.png" width="375" alt="Moka Companion home screen">
