@@ -1,0 +1,18 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.swp
+
+# Build / deps
+node_modules/
+
+# Duplicate root-level content files (canonical copies live in content/)
+/01-history.md
+/02-how-it-works.md
+/03-recipe.md
+/04-science.md
+/05-shopping-list.md
+/06-brew-log.md

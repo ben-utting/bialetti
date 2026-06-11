@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Moka Companion</title>
+
+  <!-- PWA / home screen -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Moka">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Source+Sans+3:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Sidebar (landscape / desktop) -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <span class="brand-icon">☕</span>
+      <div class="brand-text">
+        <span class="brand-title">Moka</span>
+        <span class="brand-sub">Companion</span>
+      </div>
+    </div>
+    <ul class="nav-list" id="nav-list">
+      <li class="nav-item active" data-section="history">
+        <span class="nav-icon">📖</span>
+        <span class="nav-label">History</span>
+      </li>
+      <li class="nav-item" data-section="how-it-works">
+        <span class="nav-icon">⚙️</span>
+        <span class="nav-label">How It Works</span>
+      </li>
+      <li class="nav-item" data-section="recipe">
+        <span class="nav-icon">🔥</span>
+        <span class="nav-label">Recipe</span>
+      </li>
+      <li class="nav-item" data-section="science">
+        <span class="nav-icon">🧪</span>
+        <span class="nav-label">The Science</span>
+      </li>
+      <li class="nav-item" data-section="kit-list">
+        <span class="nav-icon">🛍️</span>
+        <span class="nav-label">Kit List</span>
+      </li>
+      <li class="nav-item" data-section="brew-log">
+        <span class="nav-icon">📓</span>
+        <span class="nav-label">Brew Log</span>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- Bottom tab bar (portrait / mobile) -->
+  <nav class="tab-bar" id="tab-bar">
+    <button class="tab-item active" data-section="history">
+      <span class="tab-icon">📖</span>
+      <span class="tab-label">History</span>
+    </button>
+    <button class="tab-item" data-section="how-it-works">
+      <span class="tab-icon">⚙️</span>
+      <span class="tab-label">Works</span>
+    </button>
+    <button class="tab-item" data-section="recipe">
+      <span class="tab-icon">🔥</span>
+      <span class="tab-label">Recipe</span>
+    </button>
+    <button class="tab-item" data-section="science">
+      <span class="tab-icon">🧪</span>
+      <span class="tab-label">Science</span>
+    </button>
+    <button class="tab-item" data-section="kit-list">
+      <span class="tab-icon">🛍️</span>
+      <span class="tab-label">Kit</span>
+    </button>
+    <button class="tab-item" data-section="brew-log">
+      <span class="tab-icon">📓</span>
+      <span class="tab-label">Log</span>
+    </button>
+  </nav>
+
+  <!-- Main content area -->
+  <main class="main-content" id="main-content">
+
+    <!-- History -->
+    <section class="content-section active" id="section-history">
+      <div class="section-inner markdown-body" id="content-history">
+        <div class="loading-state">Loading…</div>
+      </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="content-section" id="section-how-it-works">
+      <div class="section-inner markdown-body" id="content-how-it-works">
+        <div class="loading-state">Loading…</div>
+      </div>
+    </section>
+
+    <!-- Recipe -->
+    <section class="content-section" id="section-recipe">
+      <div class="recipe-layout">
+        <!-- Quick Reference card -->
+        <aside class="quick-ref" id="quick-ref">
+          <h3 class="quick-ref-title">Quick Reference</h3>
+          <ol class="quick-ref-list">
+            <li>Boil kettle</li>
+            <li>Fill basket — full, level, no tamp</li>
+            <li>Fill boiler — to safety valve (light) or 2/3 (dark)</li>
+            <li>Assemble with cloth, screw firmly</li>
+            <li>Lowest flame on smallest burner</li>
+            <li>Lid open — watch and listen</li>
+            <li>Cut gas the moment liquid appears</li>
+            <li>Cold tap immediately if sputtering</li>
+            <li>Pour as soon as brewing finishes</li>
+          </ol>
+        </aside>
+        <div class="section-inner markdown-body" id="content-recipe">
+          <div class="loading-state">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Science -->
+    <section class="content-section" id="section-science">
+      <div class="section-inner markdown-body" id="content-science">
+        <div class="loading-state">Loading…</div>
+      </div>
+    </section>
+
+    <!-- Kit List -->
+    <section class="content-section" id="section-kit-list">
+      <div class="section-inner" id="content-kit-list">
+        <div class="loading-state">Loading…</div>
+      </div>
+    </section>
+
+    <!-- Brew Log -->
+    <section class="content-section" id="section-brew-log">
+      <div class="section-inner" id="content-brew-log">
+        <!-- Injected by brewlog.js -->
+      </div>
+    </section>
+
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/brewlog.js"></script>
+</body>
+</html>
