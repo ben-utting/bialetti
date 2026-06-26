@@ -20,6 +20,10 @@ function saveORKey(k)        { localStorage.setItem(AI_KEY_OR_STORE, k.trim()); 
 function getORModel()        { return localStorage.getItem(AI_MODEL_OR_STORE) || DEFAULT_OR_MODEL; }
 function saveORModel(m)      { localStorage.setItem(AI_MODEL_OR_STORE, m.trim()); }
 
+// ---- In-memory report cache (id → text) ----
+
+const analysisCache = new Map();
+
 // ---- Prompts ----
 
 const SYSTEM_PROMPT = `You are a specialist moka pot brewing assistant. Analyse a single brew session and give concrete, actionable advice to improve the next brew.
@@ -40,8 +44,8 @@ const SYSTEM_PROMPT = `You are a specialist moka pot brewing assistant. Analyse 
 - A cast iron diffusion plate significantly smooths out heat delivery
 
 **User's target flavour profile (aim all advice toward this):**
-- Bitterness: 2–3 / 5 (low-moderate — not harsh or harsh-dark)
-- Sourness / Acidity: 3–4 / 5 (present and bright, not sharp or aggressive)
+- Bitterness: 2–3 / 5 (low-moderate — not harsh)
+- Sourness / Acidity: 3–4 / 5 (present and bright, not sharp)
 - Sweetness: 4–5 / 5 (high — caramel, fruit, honey notes)
 - Body: 3–5 / 5 (medium to thick/syrupy — user strongly prefers a thick cup)
 
@@ -49,7 +53,7 @@ const SYSTEM_PROMPT = `You are a specialist moka pot brewing assistant. Analyse 
 1. Brief overall assessment (2–3 sentences)
 2. What went well
 3. Main issues and why they happened
-4. Specific changes to make next brew — prioritised by impact, with numbers where possible (e.g. "try grind setting 12 instead of 14")
+4. Specific changes to make next brew — prioritised by impact, with numbers where possible
 5. Predicted outcome if they follow the advice
 
 Be specific, honest, and encouraging. Keep the total under 400 words.`;
@@ -115,7 +119,6 @@ async function readStream(response, provider, onText) {
       if (!line.startsWith('data: ')) continue;
       const data = line.slice(6).trim();
       if (data === '[DONE]') continue;
-
       const text = provider === 'claude' ? extractClaudeText(data) : extractORText(data);
       if (text) onText(text);
     }
@@ -187,98 +190,117 @@ async function fetchAnalysis(entry) {
   return { response: res, provider: 'openrouter' };
 }
 
-// ---- Modal ----
+// ---- Card state helpers ----
 
-let activeModal = null;
-
-function openModal() {
-  if (activeModal) activeModal.remove();
-
-  const overlay = document.createElement('div');
-  overlay.className = 'ai-modal-overlay';
-
-  const modal = document.createElement('div');
-  modal.className = 'ai-modal';
-
-  const header = document.createElement('div');
-  header.className = 'ai-modal-header';
-
-  const title = document.createElement('h2');
-  title.textContent = 'Brew Analysis';
-
-  const closeBtn = document.createElement('button');
-  closeBtn.className = 'ai-modal-close';
-  closeBtn.innerHTML = '&times;';
-  closeBtn.setAttribute('aria-label', 'Close');
-  closeBtn.addEventListener('click', () => { overlay.remove(); activeModal = null; });
-
-  overlay.addEventListener('click', e => {
-    if (e.target === overlay) { overlay.remove(); activeModal = null; }
-  });
-
-  header.appendChild(title);
-  header.appendChild(closeBtn);
-
-  const body = document.createElement('div');
-  body.className = 'ai-modal-body';
-
-  modal.appendChild(header);
-  modal.appendChild(body);
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
-  activeModal = overlay;
-
-  return body;
+function setCardLoading(details) {
+  const prev = details.querySelector('.btn-analyse-brew, .ai-card-status');
+  const el = document.createElement('div');
+  el.className = 'ai-card-status ai-card-loading';
+  el.innerHTML = `
+    <div class="ai-progress-bar"><div class="ai-progress-fill"></div></div>
+    <span class="ai-status-text">Analysing your brew…</span>
+  `;
+  if (prev) prev.replaceWith(el); else details.appendChild(el);
 }
 
-// ---- Main entry point (called from brewlog.js) ----
+function setCardDone(details, entry) {
+  const prev = details.querySelector('.ai-card-status');
+  const btn = document.createElement('button');
+  btn.className = 'btn-view-analysis';
+  btn.textContent = 'View Analysis';
+  btn.addEventListener('click', e => { e.stopPropagation(); openReportPanel(entry); });
+  if (prev) prev.replaceWith(btn); else details.appendChild(btn);
+}
 
-async function showAnalysisModal(entry) {
-  const modalBody = openModal();
+function setCardError(details, entry, msg) {
+  const prev = details.querySelector('.ai-card-status, .btn-analyse-brew');
+  const el = document.createElement('div');
+  el.className = 'ai-card-status ai-card-error-inline';
 
-  const loadingEl = document.createElement('div');
-  loadingEl.className = 'ai-loading';
-  loadingEl.innerHTML = '<div class="ai-spinner"></div><p>Analysing your brew…</p>';
-  modalBody.appendChild(loadingEl);
+  const txt = document.createElement('span');
+  txt.textContent = msg;
 
-  const contentEl = document.createElement('div');
-  contentEl.className = 'ai-report markdown-body';
-  contentEl.style.display = 'none';
-  modalBody.appendChild(contentEl);
+  const retry = document.createElement('button');
+  retry.className = 'btn-analyse-brew';
+  retry.textContent = 'Try Again';
+  retry.addEventListener('click', e => { e.stopPropagation(); startAnalysis(entry, details); });
+
+  el.appendChild(txt);
+  el.appendChild(retry);
+  if (prev) prev.replaceWith(el); else details.appendChild(el);
+}
+
+// ---- Full-screen report panel ----
+
+function openReportPanel(entry) {
+  const cached = analysisCache.get(entry.id);
+  if (!cached) return;
+
+  const existing = document.getElementById('ai-report-panel');
+  if (existing) existing.remove();
+
+  const panel = document.createElement('div');
+  panel.id = 'ai-report-panel';
+  panel.className = 'ai-report-panel';
+
+  const header = document.createElement('div');
+  header.className = 'ai-report-panel-header';
+
+  const backBtn = document.createElement('button');
+  backBtn.className = 'ai-report-back-btn';
+  backBtn.innerHTML = '&#8592; Back';
+  backBtn.addEventListener('click', () => panel.remove());
+
+  const meta = document.createElement('div');
+  meta.className = 'ai-report-panel-meta';
+  meta.innerHTML = `<span class="ai-report-coffee">${entry.coffee}</span><span class="ai-report-date">${entry.date}</span>`;
+
+  header.appendChild(backBtn);
+  header.appendChild(meta);
+
+  const body = document.createElement('div');
+  body.className = 'ai-report-panel-body';
+
+  const content = document.createElement('div');
+  content.className = 'ai-report markdown-body';
+  content.innerHTML = typeof marked !== 'undefined'
+    ? marked.parse(cached)
+    : cached.replace(/\n/g, '<br>');
+
+  body.appendChild(content);
+  panel.appendChild(header);
+  panel.appendChild(body);
+  document.body.appendChild(panel);
+}
+
+// ---- Main entry point called from brewlog.js ----
+
+async function startAnalysis(entry, details) {
+  setCardLoading(details);
 
   try {
     const { response, provider } = await fetchAnalysis(entry);
 
-    loadingEl.style.display = 'none';
-    contentEl.style.display = '';
-
     let fullText = '';
-    contentEl.innerHTML = '<p class="ai-streaming-hint">Generating…</p>';
+    await readStream(response, provider, text => { fullText += text; });
 
-    await readStream(response, provider, text => {
-      fullText += text;
-      contentEl.innerHTML = typeof marked !== 'undefined'
-        ? marked.parse(fullText)
-        : fullText.replace(/\n/g, '<br>');
-    });
+    if (!fullText) throw new Error('No response received.');
 
-    if (!fullText) contentEl.innerHTML = '<p>No response received.</p>';
+    analysisCache.set(entry.id, fullText);
+    setCardDone(details, entry);
 
   } catch (err) {
-    loadingEl.style.display = 'none';
-    contentEl.style.display = '';
-
     let msg = err.message || 'Unknown error';
     if (msg === 'no-key') {
-      msg = 'No API key saved. Open the <strong>AI Settings</strong> panel below and save your key first.';
+      msg = 'No API key saved — open AI Settings below.';
     } else if (/401|invalid.*key|api key/i.test(msg)) {
-      msg = 'Invalid API key — please check it in the AI Settings panel.';
+      msg = 'Invalid API key — check AI Settings.';
     }
-    contentEl.innerHTML = `<div class="ai-error">${msg}</div>`;
+    setCardError(details, entry, msg);
   }
 }
 
-// ---- AI Settings panel (appended to brew log by initBrewLog) ----
+// ---- AI Settings panel ----
 
 function buildAISettings(container) {
   const section = document.createElement('div');
@@ -329,7 +351,7 @@ function buildAISettings(container) {
 
   const orDesc = document.createElement('p');
   orDesc.className = 'ai-settings-desc';
-  orDesc.innerHTML = `Enter your <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">OpenRouter API key</a>. OpenRouter gives access to many models (Claude, GPT, Llama, etc.) from one key. Your key is stored only in your browser's local storage.`;
+  orDesc.innerHTML = `Enter your <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">OpenRouter API key</a>. Gives access to many models from one key. Stored only in your browser's local storage.`;
 
   const orKeyRow = document.createElement('div');
   orKeyRow.className = 'ai-key-row';
@@ -385,7 +407,7 @@ function buildAISettings(container) {
 
   const claudeDesc = document.createElement('p');
   claudeDesc.className = 'ai-settings-desc';
-  claudeDesc.innerHTML = `Enter your <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Anthropic API key</a> to call Claude directly. Your key is stored only in your browser's local storage and is sent only to the Claude API.`;
+  claudeDesc.innerHTML = `Enter your <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Anthropic API key</a> to call Claude directly. Stored only in your browser's local storage.`;
 
   const claudeKeyRow = document.createElement('div');
   claudeKeyRow.className = 'ai-key-row';
@@ -443,9 +465,9 @@ function makeShowHideBtn(input) {
   btn.className = 'ai-key-show';
   btn.textContent = 'Show';
   btn.addEventListener('click', () => {
-    const isHidden = input.type === 'password';
-    input.type = isHidden ? 'text' : 'password';
-    btn.textContent = isHidden ? 'Hide' : 'Show';
+    const hidden = input.type === 'password';
+    input.type = hidden ? 'text' : 'password';
+    btn.textContent = hidden ? 'Hide' : 'Show';
   });
   return btn;
 }

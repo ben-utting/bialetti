@@ -341,7 +341,7 @@ function renderLog(listEl) {
     analyseBtn.textContent = 'Analyse Brew';
     analyseBtn.addEventListener('click', e => {
       e.stopPropagation();
-      showAnalysisModal(entry);
+      startAnalysis(entry, details);
     });
     details.appendChild(analyseBtn);
 
