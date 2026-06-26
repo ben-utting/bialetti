@@ -9,6 +9,10 @@ Thumbs.db
 # Build / deps
 node_modules/
 
+# Local secrets — never commit
+.env
+.env.*
+
 # Duplicate root-level content files (canonical copies live in content/)
 /01-history.md
 /02-how-it-works.md

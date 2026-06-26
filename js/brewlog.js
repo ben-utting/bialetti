@@ -336,6 +336,15 @@ function renderLog(listEl) {
       </div>
     `;
 
+    const analyseBtn = document.createElement('button');
+    analyseBtn.className = 'btn-analyse-brew';
+    analyseBtn.textContent = 'Analyse Brew';
+    analyseBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      showAnalysisModal(entry);
+    });
+    details.appendChild(analyseBtn);
+
     card.appendChild(header);
     card.appendChild(details);
     listEl.appendChild(card);
@@ -506,6 +515,7 @@ function initBrewLog() {
 
   renderLog(listEl);
   buildTroubleshoot(outerWrap);
+  buildAISettings(outerWrap);
 
   wrap.appendChild(outerWrap);
 }
