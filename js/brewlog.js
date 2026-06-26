@@ -336,14 +336,7 @@ function renderLog(listEl) {
       </div>
     `;
 
-    const analyseBtn = document.createElement('button');
-    analyseBtn.className = 'btn-analyse-brew';
-    analyseBtn.textContent = 'Analyse Brew';
-    analyseBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      startAnalysis(entry, details);
-    });
-    details.appendChild(analyseBtn);
+    details.appendChild(makeAnalyseButton(entry, details));
 
     card.appendChild(header);
     card.appendChild(details);

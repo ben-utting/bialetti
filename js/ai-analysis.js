@@ -145,7 +145,7 @@ async function fetchAnalysis(entry) {
       },
       body: JSON.stringify({
         model: 'claude-opus-4-8',
-        max_tokens: 1024,
+        max_tokens: 2048,
         stream: true,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userMessage }],
@@ -174,7 +174,7 @@ async function fetchAnalysis(entry) {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 1024,
+      max_tokens: 2048,
       stream: true,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
@@ -203,13 +203,38 @@ function setCardLoading(details) {
   if (prev) prev.replaceWith(el); else details.appendChild(el);
 }
 
-function setCardDone(details, entry) {
-  const prev = details.querySelector('.ai-card-status');
+function makeAnalyseButton(entry, details) {
   const btn = document.createElement('button');
-  btn.className = 'btn-view-analysis';
-  btn.textContent = 'View Analysis';
-  btn.addEventListener('click', e => { e.stopPropagation(); openReportPanel(entry); });
-  if (prev) prev.replaceWith(btn); else details.appendChild(btn);
+  btn.className = 'btn-analyse-brew';
+  btn.textContent = 'Analyse Brew';
+  btn.addEventListener('click', e => { e.stopPropagation(); startAnalysis(entry, details); });
+  return btn;
+}
+
+function setCardDone(details, entry) {
+  const prev = details.querySelector('.ai-card-status, .btn-analyse-brew, .ai-result-row');
+
+  const row = document.createElement('div');
+  row.className = 'ai-result-row';
+
+  const view = document.createElement('button');
+  view.className = 'btn-view-analysis';
+  view.textContent = 'View Analysis';
+  view.addEventListener('click', e => { e.stopPropagation(); openReportPanel(entry); });
+
+  const clear = document.createElement('button');
+  clear.className = 'btn-clear-analysis';
+  clear.textContent = 'Clear';
+  clear.setAttribute('aria-label', 'Clear analysis');
+  clear.addEventListener('click', e => {
+    e.stopPropagation();
+    analysisCache.delete(entry.id);
+    row.replaceWith(makeAnalyseButton(entry, details));
+  });
+
+  row.appendChild(view);
+  row.appendChild(clear);
+  if (prev) prev.replaceWith(row); else details.appendChild(row);
 }
 
 function setCardError(details, entry, msg) {
@@ -232,34 +257,75 @@ function setCardError(details, entry, msg) {
 
 // ---- Full-screen report panel ----
 
+function buildBrewSummary(entry) {
+  const bar = v => '●'.repeat(v) + '○'.repeat(5 - v);
+  const facts = [
+    entry.roast  ? ['Roast',  entry.roast]         : null,
+    entry.dose   ? ['Dose',   `${entry.dose} g`]   : null,
+    entry.grind  ? ['Grind',  entry.grind]         : null,
+    entry.boiler ? ['Boiler', entry.boiler]        : null,
+    entry.yield  ? ['Yield',  `${entry.yield} ml`] : null,
+  ].filter(Boolean);
+
+  const ratings = [
+    ['Bitterness', entry.bitterness],
+    ['Sourness',   entry.sourness],
+    ['Sweetness',  entry.sweetness],
+    ['Body',       entry.body],
+  ];
+
+  const factsHtml = facts.map(([k, v]) =>
+    `<div class="ai-brew-fact"><span class="ai-brew-fact-label">${k}</span><span class="ai-brew-fact-value">${v}</span></div>`
+  ).join('');
+
+  const ratingsHtml = ratings.map(([k, v]) =>
+    `<div class="ai-brew-rating"><span class="ai-brew-rating-label">${k}</span><span class="ai-brew-rating-bar">${bar(v)}</span></div>`
+  ).join('');
+
+  return `
+    <div class="ai-brew-summary">
+      ${factsHtml ? `<div class="ai-brew-facts">${factsHtml}</div>` : ''}
+      <div class="ai-brew-ratings">${ratingsHtml}</div>
+    </div>
+  `;
+}
+
 function openReportPanel(entry) {
   const cached = analysisCache.get(entry.id);
   if (!cached) return;
 
-  const existing = document.getElementById('ai-report-panel');
+  const existing = document.getElementById('ai-report-overlay');
   if (existing) existing.remove();
 
-  const panel = document.createElement('div');
-  panel.id = 'ai-report-panel';
-  panel.className = 'ai-report-panel';
+  const overlay = document.createElement('div');
+  overlay.id = 'ai-report-overlay';
+  overlay.className = 'ai-report-overlay';
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+  const popup = document.createElement('div');
+  popup.className = 'ai-report-popup';
 
   const header = document.createElement('div');
-  header.className = 'ai-report-panel-header';
-
-  const backBtn = document.createElement('button');
-  backBtn.className = 'ai-report-back-btn';
-  backBtn.innerHTML = '&#8592; Back';
-  backBtn.addEventListener('click', () => panel.remove());
+  header.className = 'ai-report-popup-header';
 
   const meta = document.createElement('div');
-  meta.className = 'ai-report-panel-meta';
+  meta.className = 'ai-report-popup-meta';
   meta.innerHTML = `<span class="ai-report-coffee">${entry.coffee}</span><span class="ai-report-date">${entry.date}</span>`;
 
-  header.appendChild(backBtn);
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'ai-report-close-btn';
+  closeBtn.setAttribute('aria-label', 'Close');
+  closeBtn.innerHTML = '&times;';
+  closeBtn.addEventListener('click', () => overlay.remove());
+
   header.appendChild(meta);
+  header.appendChild(closeBtn);
 
   const body = document.createElement('div');
-  body.className = 'ai-report-panel-body';
+  body.className = 'ai-report-popup-body';
+
+  const summary = document.createElement('div');
+  summary.innerHTML = buildBrewSummary(entry);
 
   const content = document.createElement('div');
   content.className = 'ai-report markdown-body';
@@ -267,10 +333,12 @@ function openReportPanel(entry) {
     ? marked.parse(cached)
     : cached.replace(/\n/g, '<br>');
 
+  body.appendChild(summary);
   body.appendChild(content);
-  panel.appendChild(header);
-  panel.appendChild(body);
-  document.body.appendChild(panel);
+  popup.appendChild(header);
+  popup.appendChild(body);
+  overlay.appendChild(popup);
+  document.body.appendChild(overlay);
 }
 
 // ---- Main entry point called from brewlog.js ----
